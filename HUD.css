@@ -37,6 +37,18 @@ html {
   z-index: 10;
 }
 
+#node-title {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: "Press Start 2P", sans-serif;
+  font-size: 1.5rem;
+  color: #28a745;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 15;
+}
 /* Common widget styles */
 .widget {
   position: absolute;
@@ -99,22 +111,16 @@ html {
   display: flex;
   align-items: center;
   justify-content: center;
-  
 }
 #logo-btn .logo-icon {
   width: 100%; /* scale to taste */
   height: auto; /* preserve aspect ratio */
   pointer-events: none; /* clicks go to the button */
   display: block;
-   /* ↓ add a filter to tint the PNG: */
+  /* ↓ add a filter to tint the PNG: */
   filter:
-    /* remove all color */
-    grayscale(1)
-    /* darken it */
-    brightness(0.5)
-    /* add your hue/saturation */
-    sepia(1.4) saturate(2.4) hue-rotate(432deg);
-  
+    /* remove all color */ grayscale(1) /* darken it */ brightness(0.5)
+    /* add your hue/saturation */ sepia(1.4) saturate(2.4) hue-rotate(432deg);
 }
 #shop-btn {
   top: 5%;
@@ -162,6 +168,13 @@ html {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+#logo-btn,
+#control-btn {
+  position: relative;
+  z-index: 30; /* higher than #app-sections (13) */
+  pointer-events: auto;
 }
 
 .widget {
@@ -247,4 +260,131 @@ html {
 .sub-node .material-symbols-outlined {
   font-size: 3rem; /* tweak this value as needed */
   font-variation-settings: "FILL" 0, "wght" 300, "GRAD" 0, "opsz" 24;
+}
+
+/* ===== App Sections (overlays like Store) ===== */
+#app-sections {
+  position: fixed;
+  inset: 0;
+  z-index: 13; /* above nodes (11–12) and below title (15) */
+  display: grid;
+  place-items: center;
+  pointer-events: none; /* off by default; enabled when active */
+}
+
+#app-sections.active {
+  pointer-events: none;
+}
+
+#app-sections .section {
+  pointer-events: auto;
+}
+
+.section[hidden] {
+  display: none !important;
+}
+
+.section {
+  width: min(1100px, 95vw);
+  padding: 24px;
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 2px solid #28a74555;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  transform: translateY(10px);
+  opacity: 0;
+}
+
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.section-header h2 {
+  margin: 0;
+  font-family: "Press Start 2P", sans-serif;
+  font-size: 1.2rem;
+  color: #28a745;
+  letter-spacing: 1px;
+}
+
+/* ===== Store Grid ===== */
+.store-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(260px, 1fr));
+  gap: 24px;
+}
+
+/* Responsive columns */
+@media (max-width: 980px) {
+  .store-grid {
+    grid-template-columns: repeat(2, minmax(240px, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .store-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== Product Card ===== */
+.product-card {
+  background: rgba(0, 0, 0, 0.7);
+  border: 2px solid #28a745;
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.product-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 30px rgba(40, 167, 69, 0.22);
+  border-color: #3ad35d;
+}
+
+.product-image {
+  aspect-ratio: 4 / 3; /* keeps images big, consistent */
+  display: grid;
+  place-items: center;
+  background: linear-gradient(
+    180deg,
+    rgba(40, 167, 69, 0.25),
+    rgba(40, 167, 69, 0.05)
+  );
+  overflow: hidden;
+}
+
+.product-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.product-info {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px 18px;
+  color: #e8ffe8;
+  font-family: "Press Start 2P", sans-serif;
+}
+
+.product-name {
+  font-size: clamp(0.8rem, 1.2vw, 1rem);
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+
+.product-price {
+  margin: 0;
+  color: #28a745;
+  font-weight: 700;
+  font-size: 1rem;
 }

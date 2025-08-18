@@ -84,6 +84,44 @@ window.addEventListener("resize", () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+// 0) Grab the title element we just added
+let nodeTitleEl = document.getElementById("node-title");
+if (!nodeTitleEl) {
+  nodeTitleEl = document.createElement("div");
+  nodeTitleEl.id = "node-title";
+  document.body.appendChild(nodeTitleEl);
+}
+
+const sectionsRoot = document.getElementById("app-sections");
+const sections = {
+  store: document.getElementById("store-section"),
+};
+
+function setActiveSection(type) {
+  // hide all
+  Object.values(sections).forEach((sec) => {
+    if (sec && !sec.hasAttribute("hidden")) sec.setAttribute("hidden", "");
+  });
+
+  if (!type || !sections[type]) {
+    sectionsRoot.classList.remove("active");
+    return;
+  }
+
+  const sec = sections[type];
+  sec.removeAttribute("hidden");
+  sectionsRoot.classList.add("active");
+
+  // intro animation
+  anime({
+    targets: sec,
+    opacity: [0, 1],
+    translateY: [-8, 0],
+    duration: 500,
+    easing: "easeOutQuad",
+  });
+}
+
 // register physics body
 function registerNode(el, x, y) {
   const r = el.offsetWidth / 2;
@@ -144,9 +182,9 @@ const customDistances = {
   "shop-btn": [120, 130, 130],
   "media-btn": [140, 140, 160],
   "arcade-btn": [280, 250],
-  "login-btn": [340],
+  "login-btn": [340, 340],
   "control-btn": [],
-  "logo-btn": [60, 60, 60, -60],
+  "logo-btn": [60, 60, 60],
 };
 
 // 1) define per-button node setups:
@@ -193,16 +231,16 @@ const nodeConfigs = {
   ],
   "arcade-btn": [
     {
-      icon: "sports_esports",
-      label: "arcade",
-      type: "games",
-      onClick: () => console.log("game selection"),
-    },
-    {
       icon: "experiment",
       label: "demo lab",
       type: "lab",
       onClick: () => console.log("demo lab"),
+    },
+    {
+      icon: "sports_esports",
+      label: "arcade",
+      type: "games",
+      onClick: () => console.log("game selection"),
     },
   ],
   "control-btn": [],
@@ -212,6 +250,12 @@ const nodeConfigs = {
       label: "account",
       type: "account",
       onClick: () => console.log("account"),
+    },
+    {
+      icon: "settings",
+      label: "settings",
+      type: "settings",
+      onClick: () => console.log("settings"),
     },
   ],
   "logo-btn": [
@@ -232,12 +276,6 @@ const nodeConfigs = {
       label: "contact",
       type: "contact",
       onClick: () => console.log("contact"),
-    },
-    {
-      icon: "settings",
-      label: "settings",
-      type: "settings",
-      onClick: () => console.log("settings"),
     },
   ],
   // add configs for other buttons as needed…
@@ -378,6 +416,81 @@ const baseAngles = {
 };
 
 const buttonEls = document.querySelectorAll("#hud .widget");
+
+function showSection(type) {
+  // shrink logo + control
+  anime({
+    targets: ["#logo-btn", "#control-btn"],
+    scale: 0.8,
+    duration: 500,
+    easing: "easeInOutQuad",
+  });
+
+  // fade out everything else
+  buttonEls.forEach((btn) => {
+    if (!["logo-btn", "control-btn"].includes(btn.id)) {
+      anime({
+        targets: btn,
+        opacity: 0,
+        duration: 500,
+        easing: "easeInOutQuad",
+        complete: () => (btn.style.pointerEvents = "none"),
+      });
+    }
+  });
+
+  // set & animate the title
+  nodeTitleEl.textContent = type.charAt(0).toUpperCase() + type.slice(1);
+  anime({
+    targets: "#node-title",
+    opacity: [0, 1],
+    translateY: [-20, 0],
+    duration: 600,
+    easing: "easeOutQuad",
+  });
+
+  setActiveSection(type);
+}
+
+function goHome() {
+  // undo the shrink
+  anime({
+    targets: ["#logo-btn", "#control-btn"],
+    scale: 3,
+    duration: 500,
+    easing: "easeInOutQuad",
+  });
+
+  // bring back all buttons
+  buttonEls.forEach((btn) => {
+    btn.style.pointerEvents = "auto";
+    if (!["logo-btn", "control-btn"].includes(btn.id)) {
+      anime({
+        targets: btn,
+        opacity: 1,
+        duration: 500,
+        easing: "easeInOutQuad",
+      });
+    }
+  });
+
+  // hide the title
+  anime({
+    targets: "#node-title",
+    opacity: 0,
+    translateY: [0, -20],
+    duration: 400,
+    easing: "easeInOutQuad",
+  });
+
+  setActiveSection(null);
+}
+
+document.getElementById("control-btn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  goHome();
+});
+
 buttonEls.forEach((btn) => {
   btn.style.position = "relative";
   btn._subNodes = [];
@@ -441,6 +554,8 @@ buttonEls.forEach((btn) => {
       node.appendChild(icon);
       node.addEventListener("click", (e) => {
         e.stopPropagation();
+        showSection(cfg.type);
+        //      // optionally still run your original onClick logic after:
         cfg.onClick(e, node, btn);
       });
 
@@ -489,27 +604,27 @@ buttonEls.forEach((btn) => {
     }
   });*/
   btn.addEventListener("click", (e) => {
-  e.stopPropagation();
-  btn._toggled = !btn._toggled;
+    e.stopPropagation();
+    btn._toggled = !btn._toggled;
 
-  if (btn._toggled) {
-    // ON: spawn nodes…
-    btn.spawnNodes();
+    if (btn._toggled) {
+      // ON: spawn nodes…
+      btn.spawnNodes();
 
-    // …and remove any hover-proximity watcher so they never auto-tear
-    if (btn._proximityListener) {
-      document.removeEventListener("mousemove", btn._proximityListener);
-      delete btn._proximityListener;
+      // …and remove any hover-proximity watcher so they never auto-tear
+      if (btn._proximityListener) {
+        document.removeEventListener("mousemove", btn._proximityListener);
+        delete btn._proximityListener;
+      }
+    } else {
+      // OFF: teardown exactly as before
+      if (btn._proximityListener) {
+        document.removeEventListener("mousemove", btn._proximityListener);
+        delete btn._proximityListener;
+      }
+      btn.removeNodes();
     }
-  } else {
-    // OFF: teardown exactly as before
-    if (btn._proximityListener) {
-      document.removeEventListener("mousemove", btn._proximityListener);
-      delete btn._proximityListener;
-    }
-    btn.removeNodes();
-  }
-});
+  });
 });
 
 // === Random animation timings ===
