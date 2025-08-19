@@ -95,13 +95,17 @@ if (!nodeTitleEl) {
 const sectionsRoot = document.getElementById("app-sections");
 const sections = {
   store: document.getElementById("store-section"),
+  cart: document.getElementById("cart-section"),
 };
+let currentSectionKey = null; // track which section is active (e.g., "store")
 
 function setActiveSection(type) {
   // hide all
   Object.values(sections).forEach((sec) => {
     if (sec && !sec.hasAttribute("hidden")) sec.setAttribute("hidden", "");
   });
+
+  currentSectionKey = type || null;
 
   if (!type || !sections[type]) {
     sectionsRoot.classList.remove("active");
@@ -112,15 +116,440 @@ function setActiveSection(type) {
   sec.removeAttribute("hidden");
   sectionsRoot.classList.add("active");
 
-  // intro animation
   anime({
     targets: sec,
     opacity: [0, 1],
     translateY: [-8, 0],
     duration: 500,
     easing: "easeOutQuad",
+    begin: () => {
+      sec.style.pointerEvents = "auto";
+    },
+  });
+
+  if (cartFab) {
+    if (type === "store") {
+      cartFab.hidden = false;
+      anime.set(cartFab, { opacity: 0, scale: 0.9, translateY: -6 });
+      anime({
+        targets: cartFab,
+        opacity: [0, 1],
+        scale: [0.9, 1],
+        translateY: [-6, 0],
+        duration: 220,
+        easing: "easeOutQuad",
+      });
+      // ensure badge reflects current count when entering Store
+      updateCartBadge();
+    } else {
+      // quick fade-out when leaving Store
+      anime({
+        targets: cartFab,
+        opacity: [1, 0],
+        scale: [1, 0.95],
+        duration: 160,
+        easing: "easeInQuad",
+        complete: () => (cartFab.hidden = true),
+      });
+    }
+  }
+}
+
+// ==== 2) Cart state (persisted to localStorage) ====
+const CART_KEY = "kp_cart_v1";
+let cart = [];
+
+function loadCart() {
+  try {
+    const raw = localStorage.getItem(CART_KEY);
+    cart = raw ? JSON.parse(raw) : [];
+  } catch {
+    cart = [];
+  }
+}
+function saveCart() {
+  localStorage.setItem(CART_KEY, JSON.stringify(cart));
+}
+function cartCount() {
+  return cart.reduce((n, item) => n + item.qty, 0);
+}
+function cartSubtotal() {
+  return cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+}
+
+function addToCart(prod, qty = 1) {
+  const idx = cart.findIndex((i) => i.id === prod.id);
+  if (idx > -1) {
+    cart[idx].qty += qty;
+  } else {
+    cart.push({
+      id: prod.id,
+      name: prod.name,
+      price: prod.price,
+      image: prod.image,
+      qty: qty,
+    });
+  }
+  saveCart();
+  updateCartBadge();
+  renderCart();
+  pulseCartBadge();
+}
+
+function setQty(id, qty) {
+  const item = cart.find((i) => i.id === id);
+  if (!item) return;
+  item.qty = Math.max(1, qty | 0);
+  saveCart();
+  updateCartBadge();
+  renderCart();
+}
+function incQty(id) {
+  const item = cart.find((i) => i.id === id);
+  if (!item) return;
+  item.qty += 1;
+  saveCart();
+  updateCartBadge();
+  renderCart();
+}
+function decQty(id) {
+  const item = cart.find((i) => i.id === id);
+  if (!item) return;
+  item.qty = Math.max(1, item.qty - 1);
+  saveCart();
+  updateCartBadge();
+  renderCart();
+}
+function removeFromCart(id) {
+  cart = cart.filter((i) => i.id !== id);
+  saveCart();
+  updateCartBadge();
+  renderCart();
+}
+
+// ==== 3) Cart UI elements ====
+const cartCountEl = document.getElementById("cart-count");
+const cartItemsEl = document.getElementById("cart-items");
+const cartEmptyEl = document.getElementById("cart-empty");
+const cartSubtotalEl = document.getElementById("cart-subtotal");
+const cartOpenBtn = document.getElementById("cart-open");
+const cartContinueBtn = document.getElementById("cart-continue");
+const cartCheckoutBtn = document.getElementById("cart-checkout");
+// Floating Cart node (Store-only)
+const cartFab = document.getElementById("cart-fab");
+const cartFabBadge = document.getElementById("cart-fab-badge");
+
+function updateCartBadge() {
+  if (cartCountEl) cartCountEl.textContent = String(cartCount());
+
+  // Update FAB badge
+  if (cartFabBadge) {
+    const n = cartCount();
+    if (n > 0) {
+      cartFabBadge.textContent = String(n);
+      cartFabBadge.hidden = false;
+    } else {
+      cartFabBadge.hidden = true;
+    }
+  }
+}
+
+if (cartFab) {
+  cartFab.addEventListener("click", (e) => {
+    e.stopPropagation();
+    showSection("cart");
   });
 }
+
+function formatUSD(n) {
+  return `$${n.toFixed(2)}`;
+}
+
+function renderCart() {
+  if (!cartItemsEl || !cartSubtotalEl || !cartCheckoutBtn || !cartEmptyEl)
+    return;
+
+  if (cart.length === 0) {
+    cartItemsEl.innerHTML = "";
+    cartEmptyEl.style.display = "block";
+    cartSubtotalEl.textContent = "$0.00";
+    cartCheckoutBtn.disabled = true;
+    return;
+  }
+
+  cartEmptyEl.style.display = "none";
+  cartCheckoutBtn.disabled = false;
+  cartSubtotalEl.textContent = formatUSD(cartSubtotal());
+
+  cartItemsEl.innerHTML = cart
+    .map(
+      (item) => `
+    <li class="cart-item" data-id="${item.id}">
+      <div class="ci-thumb"><img src="${item.image}" alt="${item.name}"></div>
+      <div class="ci-info">
+        <h4 class="ci-title">${item.name}</h4>
+        <div class="ci-price">${formatUSD(item.price)}</div>
+        <div class="ci-actions">
+          <div class="qty-control" role="group" aria-label="Quantity for ${
+            item.name
+          }">
+            <button class="qty-btn qty-minus" aria-label="Decrease">−</button>
+            <div class="qty-num" aria-live="polite">${item.qty}</div>
+            <button class="qty-btn qty-plus" aria-label="Increase">+</button>
+          </div>
+          <button class="ci-remove" aria-label="Remove ${
+            item.name
+          }">Remove</button>
+        </div>
+      </div>
+      <div class="ci-line-total">
+        <strong>${formatUSD(item.price * item.qty)}</strong>
+      </div>
+    </li>
+  `
+    )
+    .join("");
+}
+
+// subtle badge pulse when item is added
+function pulseCartBadge() {
+  if (!cartCountEl) return;
+  anime.set(cartCountEl, { scale: 1 });
+  anime({
+    targets: cartCountEl,
+    scale: [1, 1.15, 1],
+    duration: 320,
+    easing: "easeOutQuad",
+  });
+}
+
+// ==== 4) Wire Store header buttons ====
+if (cartOpenBtn) {
+  cartOpenBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    showSection("cart");
+  });
+}
+if (cartContinueBtn) {
+  cartContinueBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    showSection("store");
+  });
+}
+if (cartCheckoutBtn) {
+  cartCheckoutBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    // Placeholder: integrate to PayPal/Shopify later
+    alert("Checkout coming soon.");
+  });
+}
+
+// ==== 5) Delegate events inside the cart list ====
+if (cartItemsEl) {
+  cartItemsEl.addEventListener("click", (e) => {
+    const row = e.target.closest(".cart-item");
+    if (!row) return;
+    const id = row.dataset.id;
+
+    if (e.target.classList.contains("qty-minus")) {
+      decQty(id);
+    } else if (e.target.classList.contains("qty-plus")) {
+      incQty(id);
+    } else if (e.target.classList.contains("ci-remove")) {
+      removeFromCart(id);
+    }
+  });
+}
+
+// ==== 6) Hook "Add to cart" button in the Product Modal ====
+const pmAddCart = document.getElementById("pm-add-cart");
+if (pmAddCart) {
+  pmAddCart.addEventListener("click", () => {
+    if (!currentProduct) return;
+    addToCart(currentProduct, 1);
+    // Optional: nudge user to view cart
+    // anime, toast, etc. Keeping it minimal for cleanliness.
+  });
+}
+
+// Ensure going Home doesn't corrupt cart UI
+const _origGoHome_cart = goHome;
+goHome = function () {
+  _origGoHome_cart();
+  // no changes needed; cart lives in state/localStorage
+};
+
+// ==== 7) Init on load ====
+loadCart();
+updateCartBadge();
+renderCart();
+
+// ==== Product Quick View (place after your section router code) ====
+
+const productModalEl = document.getElementById("product-modal");
+const pmImage = document.getElementById("pm-image");
+const pmName = document.getElementById("pm-name");
+const pmPrice = document.getElementById("pm-price");
+const pmDesc = document.getElementById("pm-desc");
+const pmAddWish = document.getElementById("pm-add-wishlist");
+
+let currentProduct = null;
+
+function fadeOutActiveSectionForModal() {
+  if (!currentSectionKey) return;
+  const sec = sections[currentSectionKey];
+  if (!sec || sec.hasAttribute("hidden")) return;
+
+  anime({
+    targets: sec,
+    opacity: [1, 0],
+    scale: [1, 0.98],
+    duration: 220,
+    easing: "easeOutQuad",
+    begin: () => {
+      sec.style.pointerEvents = "none";
+    },
+  });
+}
+
+function fadeInActiveSectionAfterModal() {
+  if (!currentSectionKey) return;
+  const sec = sections[currentSectionKey];
+  if (!sec || sec.hasAttribute("hidden")) return;
+
+  anime({
+    targets: sec,
+    opacity: [0, 1],
+    scale: [0.98, 1],
+    duration: 220,
+    easing: "easeOutQuad",
+    begin: () => {
+      sec.style.pointerEvents = "auto";
+    },
+  });
+}
+
+function resetSectionStylesIfNeeded() {
+  if (!currentSectionKey) return;
+  const sec = sections[currentSectionKey];
+  if (!sec) return;
+  // Clear inline styles so future shows aren't stuck faded
+  sec.style.removeProperty("opacity");
+  sec.style.removeProperty("transform");
+  sec.style.pointerEvents = "auto";
+}
+
+function openProductModal(prod) {
+  currentProduct = prod;
+
+  // populate...
+  pmImage.src = prod.image;
+  pmImage.alt = prod.name;
+  pmName.textContent = prod.name;
+  pmPrice.textContent = `$${Number(prod.price).toFixed(2)}`;
+  pmDesc.textContent = prod.desc || "—";
+
+  // Fade out the underlying section (cards)
+  fadeOutActiveSectionForModal();
+
+  productModalEl.hidden = false;
+  productModalEl.setAttribute("aria-hidden", "false");
+
+  const dialog = productModalEl.querySelector(".modal-dialog");
+  anime.set(dialog, { opacity: 0, scale: 0.96, translateY: 6 });
+  anime({
+    targets: dialog,
+    opacity: [0, 1],
+    scale: [0.96, 1],
+    translateY: [6, 0],
+    duration: 260,
+    easing: "easeOutQuad",
+  });
+
+  productModalEl.querySelector(".modal-close").focus({ preventScroll: true });
+}
+
+function closeProductModal(skipAnim = false) {
+  if (productModalEl.hidden) return;
+
+  const dialog = productModalEl.querySelector(".modal-dialog");
+
+  const finalize = () => {
+    productModalEl.hidden = true;
+    productModalEl.setAttribute("aria-hidden", "true");
+    currentProduct = null;
+  };
+
+  if (skipAnim) {
+    finalize();
+    // If we're skipping (e.g., going Home), make sure section isn't left faded
+    resetSectionStylesIfNeeded();
+    return;
+  }
+
+  anime({
+    targets: dialog,
+    opacity: [1, 0],
+    scale: [1, 0.96],
+    translateY: [0, 6],
+    duration: 200,
+    easing: "easeInQuad",
+    complete: () => {
+      finalize();
+      // Fade the section back in after the modal closes
+      fadeInActiveSectionAfterModal();
+    },
+  });
+}
+
+// Click cards → open modal
+document.querySelectorAll(".product-card").forEach((card) => {
+  card.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const prod = {
+      id: card.dataset.id,
+      name: card.dataset.name,
+      price: parseFloat(card.dataset.price || "0"),
+      image: card.dataset.image,
+      desc: card.dataset.desc || "",
+    };
+    openProductModal(prod);
+  });
+});
+
+// Close handlers
+productModalEl.addEventListener("click", (e) => {
+  const isBackdrop = e.target.classList.contains("modal-backdrop");
+  const isCloseBtn = e.target.classList.contains("modal-close");
+  if (isBackdrop || isCloseBtn) closeProductModal();
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !productModalEl.hidden) closeProductModal();
+});
+
+// Hook CTAs (you can replace these with real cart logic later)
+pmAddCart.addEventListener("click", () => {
+  if (!currentProduct) return;
+  // TODO: integrate your cart here
+  window.dispatchEvent(new CustomEvent("cart:add", { detail: currentProduct }));
+  console.log("Added to cart:", currentProduct);
+});
+
+pmAddWish.addEventListener("click", () => {
+  if (!currentProduct) return;
+  window.dispatchEvent(
+    new CustomEvent("wishlist:add", { detail: currentProduct })
+  );
+  console.log("Added to wishlist:", currentProduct);
+});
+
+// Ensure going "Home" also closes the modal
+const _origGoHome = goHome;
+goHome = function () {
+  closeProductModal(true);
+  _origGoHome();
+};
 
 // register physics body
 function registerNode(el, x, y) {

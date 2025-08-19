@@ -51,13 +51,25 @@
     <main id="app-sections" aria-live="polite">
       <!-- Store -->
       <section id="store-section" class="section" hidden>
+        <!-- Floating Cart node (only relevant for Store) -->
+        <button id="cart-fab" class="cart-fab" aria-label="Open cart" hidden>
+          <span class="material-symbols-outlined"> shopping_cart </span>
+          <span id="cart-fab-badge" class="fab-badge" hidden>0</span>
+        </button>
         <div class="section-header">
           <h2></h2>
         </div>
 
         <div class="store-grid">
           <!-- Card 1 -->
-          <article class="product-card">
+          <article
+            class="product-card"
+            data-id="sku_technature_tee"
+            data-name="Technature Tee"
+            data-price="30.00"
+            data-image=""
+            data-desc="Soft ringspun tee with the Technature emblem. Unisex fit."
+          >
             <div class="product-image">
               <img src="" alt="Technature Tee" />
             </div>
@@ -67,7 +79,14 @@
             </div>
           </article>
           <!-- Card 2 -->
-          <article class="product-card">
+          <article
+            class="product-card"
+            data-id="sku_cyberleaf_tee"
+            data-name="Cyberleaf Tee"
+            data-price="30.00"
+            data-image=""
+            data-desc="Soft ringspun tee with the Cyberleaf emblem. Unisex fit."
+          >
             <div class="product-image">
               <img src="" alt="Cyberleaf Tee" />
             </div>
@@ -78,12 +97,16 @@
           </article>
 
           <!-- Card 3 -->
-          <article class="product-card">
+          <article
+            class="product-card"
+            data-id="sku_digital_molecule_tee"
+            data-name="Digital Molecule Tee"
+            data-price="30.00"
+            data-image=""
+            data-desc="Soft ringspun tee with the Digital Molecule emblem. Unisex fit."
+          >
             <div class="product-image">
-              <img
-                src=""
-                alt="Digital Molecule Tee"
-              />
+              <img src="" alt="Digital Molecule Tee" />
             </div>
             <div class="product-info">
               <h3 class="product-name">Digital Molecule Tee</h3>
@@ -92,6 +115,76 @@
           </article>
         </div>
       </section>
+
+      <section id="cart-section" class="section" hidden>
+        <div class="section-header">
+          <h2>Your Cart</h2>
+          <div class="cart-actions">
+            <button class="btn btn-secondary" id="cart-continue">
+              Continue shopping
+            </button>
+          </div>
+        </div>
+
+        <div class="cart-grid">
+          <div class="cart-items-wrap">
+            <ul id="cart-items" class="cart-items"></ul>
+            <p id="cart-empty" class="cart-empty">Your cart is empty.</p>
+          </div>
+
+          <aside class="cart-summary">
+            <div class="summary-line">
+              <span>Subtotal</span><span id="cart-subtotal">$0.00</span>
+            </div>
+            <p class="summary-note">
+              Taxes and shipping calculated at checkout.
+            </p>
+            <button
+              id="cart-checkout"
+              class="btn btn-primary btn-checkout"
+              disabled
+            >
+              Checkout
+            </button>
+          </aside>
+        </div>
+      </section>
+
+      <div
+        id="product-modal"
+        class="modal"
+        hidden
+        aria-hidden="true"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div class="modal-backdrop" data-close="backdrop"></div>
+
+        <div class="modal-dialog" role="document">
+          <button class="modal-close" aria-label="Close">&times;</button>
+
+          <div class="modal-body">
+            <div class="modal-media">
+              <img id="pm-image" alt="" />
+            </div>
+
+            <div class="modal-details">
+              <h3 id="pm-name"></h3>
+              <p id="pm-price" class="pm-price"></p>
+              <p id="pm-desc" class="pm-desc"></p>
+
+              <div class="modal-ctas">
+                <button id="pm-add-cart" class="btn btn-primary">
+                  Add to cart
+                </button>
+                <button id="pm-add-wishlist" class="btn btn-secondary">
+                  Add to wishlist
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </main>
 
     <!-- Three.js core -->
